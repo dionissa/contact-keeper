@@ -1,19 +1,27 @@
 # Estágio de compilação
-FROM maven:3.8.3-openjdk-17 as build
-RUN mkdir -p /usr/src/app
-WORKDIR /usr/src/app
-ADD . /usr/src/app/
+FROM maven:3.8.4-openjdk-17-slim AS build
+WORKDIR /app
 
-RUN mvn package
+# Instalação de dependências do frontend
+RUN apt-get update && \
+    apt-get install -y nodejs npm && \
+    npm install -g npm@latest
 
-# Estágio de execução
-FROM openjdk:17-jdk-alpine
+# Copia o código-fonte do aplicativo
+COPY pom.xml .
+COPY src ./src
 
-RUN mkdir -p /usr/src/app
-WORKDIR /usr/src/app
+# Compilação do backend
+RUN mvn dependency:go-offline && \
+    mvn package -DskipTests
 
-COPY --from=build /usr/src/app/target/contact-keeper-1.0-SNAPSHOT.jar app.jar
+# Compilação do frontend (exemplo)
+RUN cd src/main/frontend && \
+    npm install && \
+    npm run build
 
+# Estágio de produção
+FROM eclipse-temurin:17-jre
+COPY --from=build /app/target/*.jar /app/app.jar
 EXPOSE 8080
-
-CMD ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
