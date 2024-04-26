@@ -2,26 +2,22 @@
 FROM maven:3.8.4-openjdk-17-slim AS build
 WORKDIR /app
 
-# Instalação de dependências do frontend
-RUN apt-get update && \
-    apt-get install -y nodejs npm && \
-    npm install -g npm@latest
-
 # Copia o código-fonte do aplicativo
 COPY pom.xml .
 COPY src ./src
 
 # Compilação do backend
-RUN mvn dependency:go-offline && \
-    mvn package -DskipTests
+RUN mvn package -DskipTests
 
-# Compilação do frontend (exemplo)
-RUN cd src/main/frontend && \
-    npm install && \
-    npm run build
+# Estágio final
+FROM eclipse-temurin:21-jre
+WORKDIR /app
 
-# Estágio de produção
-FROM eclipse-temurin:17-jre
-COPY --from=build /app/target/*.jar /app/app.jar
+# Copia o arquivo JAR construído do estágio anterior
+COPY --from=build /app/target/*.jar app.jar
+
+# Expor a porta 8080 (se necessário)
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+# Comando de entrada para executar o aplicativo
+ENTRYPOINT ["java", "-jar", "app.jar"]
